@@ -1,0 +1,7 @@
+library(glm2)
+satel <- as.data.frame(crabs$Satellites)
+width <- as.data.frame(crabs$Width)
+dark <- as.data.frame(crabs$Dark)
+goodsp <- as.data.frame(crabs$GoodSpine)
+model = glm(satel ~ width + dark + goodsp,family = poisson(link = log))
+summary(model)

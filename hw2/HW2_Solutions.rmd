@@ -1,0 +1,496 @@
+---
+title: "Homework 2 Solutions"
+author: "Dr. Nicholas Syring"
+date: "September 16, 2018"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+1.  Consider the Poisson regression model
+\[Y_i = Pois(\lambda_i)\]
+where $\lambda_i = E(Y_i|X_i)$ and $g(\lambda_i)=X_i^\top \beta$ for $X_i, \beta\in\mathbb{R}^p$.
+
+a) Derive the Newton's Method update for the MLE estimator of $\beta$.<br>
+b) Derive the Fisher's Scoring update for the MLE estimator of $\beta$.<br>
+c) Show the two methods are equivalent when using the canonical link $g(\cdot):=\log(\cdot)$.<br>
+d) Find the crabs data in the R package $\mathtt{glm2}$. Fit a Poisson regression model to the data using Newton's Method with the log link (same as Fisher Scoring).  The response variable is $\mathtt{Satellites}$ and the explanatory variables are $\mathtt{Width}$, $\mathtt{Dark}$, and $\mathtt{GoodSpine}$.
+<br><br>
+Solutions <vr>
+
+a) <br><br>
+The loglikelihood of the Poisson model may be written
+\[\ell(\lambda; X, Y) = \sum_i Y_i \log(\lambda_i) - \sum_i\lambda_i - \sum_i\log(Y_i).\]
+The $j^{th}$ element of the gradient may be written
+\[\frac{\partial \ell}{\partial \beta_j} = \sum_i (\frac{Y_i}{\lambda_i}-1)\frac{\partial \ell}{\partial \beta_j} = \sum_i (\frac{Y_i}{\lambda_i}-1)\frac{X_{ij}}{g'(\lambda_i)} \]
+using the formula for the derivative of the inverse of a function, 
+\[(f^{-1}(x))' = \frac{1}{f'(f^{-1})(x)}.\]
+The elements of the Hessian are
+\[\frac{\partial^2 \ell}{\partial \beta_j^2} = \sum_i-\frac{Y_i}{\lambda_i^2}\frac{X_{ij}^2}{g'(\lambda_i)^2}+(\frac{Y_i}{\lambda_i}-1)\frac{-X_{ij}^2}{g'(\lambda_i)^3}g''(\lambda_i).\]
+And, analagously for the off-diagnoal terms,
+\[\frac{\partial^2 \ell}{\partial \beta_j\partial \beta_k} = \sum_i-\frac{Y_i}{\lambda_i^2}\frac{X_{ij}X_{ik}}{g'(\lambda_i)^2}+(\frac{Y_i}{\lambda_i}-1)\frac{-X_{ij}X_{ik}}{g'(\lambda_i)^3}g''(\lambda_i).\]
+Then, the updates follow the usual
+\[\beta_{n+1} = \beta_n - \left[\frac{\partial^2 \ell}{\partial \beta_j\partial \beta_k}\right]_{j,k}^{-1}\left[\frac{\partial \ell}{\partial \beta_j}\right].\]
+<br>
+<br>
+
+b) <br><br>
+
+For Fisher's update, take the (conditional) expectation of the Hessian terms, recalling that $E(Y_i|X_i)=\lambda_i$.  Then,
+\[E(\frac{\partial^2 \ell}{\partial \beta_j^2}) =\sum_i-\frac{\lambda_i}{\lambda_i^2}\frac{X_{ij}^2}{g'(\lambda_i)^2}+(\frac{\lambda_i}{\lambda_i}-1)\frac{-X_{ij}^2}{g'(\lambda_i)^3}g''(\lambda_i)\]
+\[=\sum_i-\frac{1}{\lambda_i}\frac{X_{ij}^2}{g'(\lambda_i)^2}.\]
+And, analogously for the off-diagonal terms,
+\[E(\frac{\partial^2 \ell}{\partial \beta_j\partial \beta_k}) = \sum_i-\frac{1}{\lambda_i}\frac{X_{ij}X_{ik}}{g'(\lambda_i)^2}.\]
+The Fisher Scoring updates follow 
+\[\beta_{n+1} = \beta_n + E-\left[\frac{\partial^2 \ell}{\partial \beta_j\partial \beta_k}\right]_{j,k}^{-1}\left[\frac{\partial \ell}{\partial \beta_j}\right].\]
+
+<br><br>
+
+c) Consider $\frac{\partial^2 \ell}{\partial \beta_j\partial \beta_k}$ under $g(\cdot):=\log(\cdot)$.  Then,
+\[\sum_i-\frac{Y_i}{\lambda_i^2}\frac{X_{ij}X_{ik}}{g'(\lambda_i)^2}+(\frac{Y_i}{\lambda_i}-1)\frac{-X_{ij}X_{ik}}{g'(\lambda_i)^3}g''(\lambda_i)\]
+\[= \sum_i-\frac{Y_i}{\lambda_i^2}\frac{X_{ij}X_{ik}}{1/\lambda_i^2}+(\frac{Y_i}{\lambda_i}-1)\frac{-X_{ij}X_{ik}}{1/\lambda_i^3}(-1/\lambda_i^2)\]
+\[ = -\sum_iX_{ij}X_{ik}\lambda_i.\]
+
+Also, for Fisher Scoring, if $g(\cdot):=\log(\cdot)$, substitute $g'(\lambda_i) = 1/\lambda_i$ to get
+\[-\sum_i\frac{1}{\lambda_i}\frac{X_{ij}X_{ik}}{g'(\lambda_i)^2}\]
+\[ = -\sum_i\lambda_iX_{ij}X_{ik}.\]
+
+So, the two are equivalent.
+<br><br>
+
+d)
+```{r, eval = T, echo = T}
+poisson_reg_loglikelihood <- function(beta_vec, Y, X){
+
+
+	return(	
+	
+	sum(Y*X%*%beta_vec) - sum(exp(X%*%beta_vec))-sum(log(factorial(Y)))
+
+	)
+}
+
+gradient_poisson_reg_loglikelihood <- function(beta_vec, Y, X){
+  
+  p <- length(beta_vec)
+  grad <- rep(NA, p)
+  Xbeta <- X%*%beta_vec
+  
+  for(i in 1:p){
+    grad[i] <- sum(Y*X[,i]) - sum(X[,i]*exp(Xbeta))
+  }
+  
+	return(grad)
+}
+
+hessian_poisson_reg_loglikelihood <- function(beta_vec, Y, X){
+
+	p <- length(beta_vec)
+  hess <- matrix(NA, p, p)
+  Xbeta <- X%*%beta_vec
+  
+	for(j in 1:p){
+	  for(k in 1:p){
+	    hess[j,k] <- -sum(X[,j]*X[,k]*exp(Xbeta))
+	  }
+	}
+	
+	return(hess)
+}
+
+newtons_method <- function(init_par, fun, grad, hess, tol, max_iter, Y,X){
+	
+	rel_tol <- 2*tol
+	par_old <- init_par
+	iter_count <- 0
+    iter_par <- matrix(0,max_iter+1,length(init_par))
+    iter_par[1,] <-init_par
+
+	while(rel_tol > tol & iter_count < max_iter){
+
+		par_new <- par_old - solve(hess(par_old, Y,X))%*%grad(par_old, Y,X)
+		rel_tol <- max(abs(par_new - par_old)/par_old)
+		par_old <- par_new
+		iter_count <- iter_count + 1
+      	iter_par[iter_count+1,] <- t(par_new)
+
+	}
+
+	return(list(solution = par_new, fun_solution = fun(par_new, Y,X), final_tol = rel_tol, num_iters = iter_count, all_iters = iter_par[1:iter_count,]))
+
+}
+
+library(glm2)
+n <- length(crabs$Satellites)
+Y <- matrix(crabs$Satellites,n,1)
+X <- matrix(0,n,4)
+X[,1] <- 1
+X[,2] <- crabs$Width
+X[,3] <- ifelse(crabs$Dark=="no",0,1)
+X[,4] <- ifelse(crabs$GoodSpine=="no",0,1)
+
+fitted.coefs <- newtons_method(matrix(c(0,0,0,0),4,1), poisson_reg_loglikelihood, gradient_poisson_reg_loglikelihood, hessian_poisson_reg_loglikelihood, .0001, 100, Y, X)
+fitted.coefs
+
+glm(Satellites~1+Width+Dark+GoodSpine, family = poisson(link = "log"), data = crabs)
+```
+
+
+
+
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+
+
+2. Consider the Weibull distribution with parameters $\beta$ and $\theta$ and density 
+\[f(x; \beta, \theta) = \frac{\beta}{\theta^\beta}x^{\beta-1}\exp[-(x/\theta)^\beta], \, x,\beta,\theta > 0.\]
+a) Show that the MLE of $\beta$ can be written as
+\[\beta = \left[ \frac{\sum x_i^\beta \log x_i}{\sum x_i^\beta} -\frac1n\sum\log x_i \right]^{-1}.\]
+<br><br>
+
+The loglikelihood can be written
+\[\ell(\theta, \beta; x) = n\log\beta - n\beta\log \theta + (\beta - 1)\sum \log x_i - \sum \left( \frac {x_i}\theta \right)^\beta.\]
+
+The partial derivatives of the loglikelihood are
+\[\frac{\partial \ell}{\partial \theta} = \frac{-n\beta}{\theta} + \frac{\beta}{\theta^{\beta + 1}}\sum x_i^\beta\]
+<br>
+\[\frac{\partial \ell}{\partial \beta} = \frac{n}{\beta} - n \log \theta +\sum \log x_i - \sum \left( \frac{x_i}{\theta} \right)^\beta \log\frac{x_i}{\theta}.\]
+<br>
+Set $\frac{\partial \ell}{\partial \theta} = 0$ and solve, finding
+\[\theta^\beta = \frac{1}{n} \sum x_i^\beta.\]
+<br>
+Set $\frac{\partial \ell}{\partial \beta} = 0$ and solve, finding
+\[\beta = \left[ \log \theta -\frac{1}{n}\sum\log x_i + \frac{1}{n}\sum\left( \frac{x_i}{\theta} \right)^\beta \log\frac{x_i}{\theta} \right]^{-1}.\]
+Substitute $\theta^\beta = \frac{1}{n} \sum x_i^\beta$ and conclude the claim
+\[\beta = \left[ \frac{\sum x_i^\beta \log x_i}{\sum x_i^\beta} -\frac1n\sum\log x_i \right]^{-1}.\]
+<br><br><br>
+b) Recognize the above as a fixed point iteration. Argue that there exists a unique fixed point. Hint: argue (as in the Gumbel example) that $\beta$ is monotone increasing, $F(\beta)$ is monotone decreasing, and $F(\beta) > \beta$ for small $\beta$ while $\beta > F(\beta)$ for large $\beta$. This doesn't have to be a formal proof, but should be convincing.<br><br>
+
+The equation in a) is a fixed point iteration with $F(\beta) = \left[ \frac{\sum x_i^\beta \log x_i}{\sum x_i^\beta} -\frac1n\sum\log x_i \right]^{-1}$.  Take the derivative of $F(\beta)$,
+\[\frac{dF}{d\beta} = -(F(\beta))^2 * \frac{\sum x_i^\beta(\log x_i)^2 \sum x_i^\beta - \sum x_i^\beta\log x_i\sum x_i^\beta\log x_i}{(\sum x_i^\beta)^2}.\]
+<br>
+It's clear that $(F(\beta))^2>0$.  Distribute the $(-)$ to the fraction and see that it is negative by the Cauchy-Schwarz Inequality: set $a_i = x_i^{\beta/2}\log x_i$ and $b_i = x_i^{\beta/2}$.  Then, the numerator of the fraction (multiplied by $-1$) can be written
+\[\left(\sum a_ib_i\right)^2 - \sum a_i^2 \sum b_i^2 \leq 0.\]
+And, the denominator of the fraction is $\left(\sum x_i^2\right)>0$.  Hence, $F(\beta)$ is monotonic decreasing in $\beta$.  Obviously, $\beta$ is monotonic increasing in $\beta$.   <br><br>
+Note also that as $\beta$ increases, $\frac{\sum x_i^\beta \log x_i}{\sum x_i^\beta} \rightarrow \log x_{(n)}$ since this is a weighted average and the weight concentrates on $x_{(n)}$ as $\beta$ gets large.  So, for large $\beta$, $F(\beta) \approx \frac{1}{\log(x_{(n)})} < \beta$.  For very small $\beta$, the weights $x_i^\beta \approx 1$, so $F(\beta) \approx 1/\epsilon > \beta$ for small $\beta,\epsilon$.<br><br>
+Together, these arguments imply that there is a unique intersection point of $\beta$ and $F(\beta)$, i.e. a unique fixed point exists. 
+<br><br>
+c) Show that $\theta$ can be estimated by 
+\[\hat{\theta}_n = (\frac{1}{n}\sum x_i^\beta)^{1/\beta}.\]
+<br>
+From part a), we solved $\partial \ell / \partial \theta = 0$ and found $\theta^\beta = \frac{1}{n}\sum x_i^\beta$.  So, once we estimate $\beta$ via fixed-point iteration, with say, $\hat{\beta}_n$, then substitute and estimate $\theta$ with the plug-in estimator
+\[\hat{\theta}_n = \left(\frac{1}{n}\sum x_i^{\hat{\beta}_n}\right)^{1/\hat{\beta}_n}.\]
+
+
+<br><br>
+d) Simulate 50 observations from a Weibull distribution with parameters $\beta = 5$ and $\theta = 7$. Use $set.seed(12345)$ so that we generate the same data. Find the MLEs using the fixed point iteration and the formula in part c).
+
+```{r, echo = T, eval = T}
+set.seed(12345)
+weibull_sample <- rweibull(50, shape=5, scale = 7)
+contraction_mapping <- function(b, x){
+  n <- length(x)
+  return(1/(sum(x^b*log(x))/sum(x^b) - (1/n)*sum(log(x)))) 
+}
+beta_last <- .1
+beta_next <- 1
+while(abs(beta_next - beta_last)>0.01){
+  beta_last <- beta_next
+  beta_next <- contraction_mapping(beta_last,weibull_sample)
+}
+beta_next
+theta_hat <- ((1/length(weibull_sample))*sum(weibull_sample^beta_next))^(1/beta_next)
+theta_hat
+```
+
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+
+3. Consider the Frechet distribution with pdf
+\[f(x; \alpha, s) = \frac{\alpha}{s}\left( \frac{x}{s} \right)^{-1-\alpha}\exp(-\frac{x}{s})^{-\alpha}\]
+You can find the Frechet distribution in the evd package in R.<br><br>
+a) Simulate 100 random variates from the Frechet distirbution with
+parameters $\alpha = 3$ and $s = 2$. Use $set.seed(12345)$ so that we all
+simulate the same data. Use the Newton's Method (ok to use Secant Method) algorithm from
+the lecture notes to find the MLEs.<br>
+<br>
+<br>
+<br>
+```{r, eval = T, echo = T}
+frechet_loglikelihood <- function(alpha_s, data){
+  
+  alpha <- alpha_s[1]
+  s <- alpha_s[2]
+  n <- length(data)
+  
+	return(	
+	
+  	 n*log(alpha) - (1+alpha)*sum(log(data))+alpha*n*log(s)-(s^alpha)*sum((1/data)^alpha) 
+
+	)
+}
+
+secant_method <- function(init_par, fun, tol, max_iter, data){
+
+	eps <- 0.01
+	rel_tol <- 2*tol
+	par_old <- init_par
+	iter_count <- 0
+  iter_par <- matrix(0,max_iter+1,length(init_par))
+  iter_par[1,] <- t(init_par)
+	dim_par <- length(init_par)
+	approx_grad <- rep(0, dim_par)
+	approx_hess <- matrix(0, dim_par, dim_par)	
+
+	while(rel_tol > tol & iter_count < max_iter){
+
+		for(i in 1:dim_par){
+			del <- rep(0,dim_par)
+			del[i] <- eps
+			approx_grad[i] <- (0.5/eps)*(fun(t(par_old+matrix(del,dim_par,1)),data) - fun(t(par_old), data))
+		}
+
+		for(i in 1:dim_par){
+			del1 <- rep(0,dim_par)
+			del1[i] <- eps
+			for(j in 1:dim_par){
+				del2 <- rep(0,dim_par)
+				del2[j] <- eps
+				if(i == j){
+					approx_hess[i,j] <- (1/(eps^2))*(fun(t(par_old+matrix(del1,dim_par,1)),data) - 2*fun(t(par_old),data) + fun(t(par_old-matrix(del1,dim_par,1)),data))	
+				}else {
+					approx_hess[i,j] <- (0.25/(eps^2))*(fun(t(par_old+matrix(del1,dim_par,1)+matrix(del2,dim_par,1)),data)
+											-fun(t(par_old+matrix(del1,dim_par,1)-matrix(del2,dim_par,1)),data)
+											-fun(t(par_old-matrix(del1,dim_par,1)+matrix(del2,dim_par,1)),data)
+											+fun(t(par_old-matrix(del1,dim_par,1)-matrix(del2,dim_par,1)),data))
+				}
+			}
+		}
+
+		
+		par_new <- par_old - solve(approx_hess)%*%approx_grad 
+		rel_tol <- max(abs(par_new - par_old)/par_old)
+		par_old <- par_new
+		iter_count <- iter_count + 1
+      	iter_par[iter_count+1,] <- par_new
+
+	}
+
+	return(list(solution = par_new, fun_solution = fun(par_new, data), final_tol = rel_tol, num_iters = iter_count, all_iters = iter_par[1:iter_count,]))
+}
+
+library(evd)
+set.seed(12345)
+frechet_data <- rfrechet(100, loc=0, scale=2, shape=3)
+MLE_soln <- secant_method(matrix(c(3,2),2,1), frechet_loglikelihood, .001, 50, frechet_data)
+MLE_soln
+MLE_soln <- secant_method(matrix(c(1,1),2,1), frechet_loglikelihood, .001, 50, frechet_data)
+MLE_soln
+MLE_soln <- secant_method(matrix(c(2,2),2,1), frechet_loglikelihood, .001, 50, frechet_data)
+MLE_soln
+
+
+
+
+```
+
+The secant method only works for some good initial points.
+
+b) Write a "rank-one update" quasi-Newton Method in R and use it
+to find the MLEs.<br>
+<br>
+<br>
+<br>
+
+```{r, eval = T, echo = T}
+
+
+frechet_loglikelihood <- function(alpha_s, data){
+  
+  alpha <- alpha_s[1]
+  s <- alpha_s[2]
+  n <- length(data)
+  
+	return(	
+	
+  	 n*log(alpha) - (1+alpha)*sum(log(data))+alpha*n*log(s)-(s^alpha)*sum((1/data)^alpha) 
+
+	)
+}
+
+frechet_loglikelihood2 <- function(alpha_s, data){
+  
+  alpha <- alpha_s[1]
+  s <- alpha_s[2]
+  n <- length(data)
+  
+	return(	
+	
+  	-(n*log(alpha) - (1+alpha)*sum(log(data))+alpha*n*log(s)-(s^alpha)*sum((1/data)^alpha) )
+
+	)
+}
+
+gradient_frechet_loglikelihood <- function(alpha_s, data){
+  
+  alpha <- alpha_s[1]
+  s <- alpha_s[2]
+  n <- length(data)
+  
+  grad <- matrix(NA,2,1)
+  grad[1] <- n/alpha - sum(log(data)) +n*log(s) - (s^alpha)*log(s)*sum((1/data)^alpha)-(s^alpha)*sum(log(1/data)*((1/data)^alpha))
+  grad[2] <- alpha*n/s - alpha*(s^(alpha - 1))*sum((1/data)^alpha)
+  
+	return(grad)
+}
+
+rank_one_method <- function(init_par, fun, grad, max_iter, tol, data){
+  
+  rel_tol <- 2*tol
+	par_old <- init_par
+	iter_count <- 0
+  iter_par <- matrix(0,max_iter+1,length(init_par))
+  iter_par[1,] <-init_par
+  H <- matrix(c(1,0,0,1),2,2)
+  ascent_step_one <- .05
+  step_one_up <- FALSE
+  step_one_count <- 0
+  
+  while(rel_tol > tol & iter_count < max_iter){
+
+    if(iter_count == 0){
+      while(!step_one_up) {
+		    par_new <- par_old + ascent_step_one*H%*%grad(par_old, data)
+		    ascent_step_one <- ascent_step_one/2
+		    step_one_count <- step_one_count + 1
+		    step_one_up <- ifelse(any(par_new<0),FALSE,(fun(par_new, data) > fun(par_old, data)))  || step_one_count > 1000
+      }
+      H <- H*ascent_step_one*2
+    }else{
+      par_new <- par_old - H%*%grad(par_old, data)
+    }
+		rel_tol <- max(abs(par_new - par_old)/par_old)
+		z <- par_new - par_old
+		y <- grad(par_new, data)-grad(par_old, data)
+		H <- H + ((z - H%*%y)%*%t(z - H%*%y)/as.numeric((t(z-H%*%y)%*%y)))
+		par_old <- par_new
+		iter_count <- iter_count + 1
+    iter_par[iter_count+1,] <- t(par_new)
+par_new
+	}
+
+	return(list(solution = par_new, fun_solution = fun(par_new, data), final_tol = rel_tol, num_iters = iter_count, all_iters = iter_par[1:iter_count,], H=H))
+}
+
+
+
+library(evd)
+set.seed(12345)
+frechet_data <- rfrechet(100, loc=0, scale=2, shape=3)
+MLE_soln <- rank_one_method(matrix(c(3,2),2,1), frechet_loglikelihood, gradient_frechet_loglikelihood, 50, .001, frechet_data)
+MLE_soln
+MLE_soln <- rank_one_method(matrix(c(2,1),2,1), frechet_loglikelihood, gradient_frechet_loglikelihood, 50, .001, frechet_data)
+MLE_soln
+MLE_soln <- rank_one_method(matrix(c(4,3),2,1), frechet_loglikelihood, gradient_frechet_loglikelihood, 50, .001, frechet_data)
+MLE_soln
+
+
+```
+
+c) Use R's optim function with the "BFGS" method (this is a rank-two
+update) to find the MLEs.<br>
+<br>
+<br>
+<br>
+
+
+```{r, eval = T, echo = T}
+
+
+frechet_loglikelihood <- function(alpha_s, data){
+  
+  alpha <- alpha_s[1]
+  s <- alpha_s[2]
+  n <- length(data)
+  
+	return(	
+	
+  	 -(n*log(alpha) - (1+alpha)*sum(log(data))+alpha*n*log(s)-(s^alpha)*sum((1/data)^alpha) )
+
+	)
+}
+
+library(evd)
+set.seed(12345)
+frechet_data <- rfrechet(100, loc=0, scale=2, shape=3)
+
+opt1<-optim(c(3,2), frechet_loglikelihood, method = "BFGS", control = list(reltol = 0.001), data = frechet_data)
+opt1
+
+optim(c(1,1), frechet_loglikelihood, method = "BFGS", data = frechet_data)
+optim(c(2,2), frechet_loglikelihood, method = "BFGS", data = frechet_data)
+optim(c(3,3), frechet_loglikelihood, method = "BFGS", data = frechet_data)
+optim(c(4,4), frechet_loglikelihood, method = "BFGS", data = frechet_data)
+optim(c(5,5), frechet_loglikelihood, method = "BFGS", data = frechet_data)
+```
+
+Optim with BFGS seems to work more reliably for more initial points.
+
+
+d) Compare the results. Are there any significant differences in number
+of iterations for convergence? (Make sure all these algorithms use
+the same convergence criteria...).<br>
+<br>
+<br>
+<br>
+
+
+Setting the optional argument reltol = 0.001 in optim, the algorithm converged with 2 gradient computations with the correct initial guess $(3,2)$.  The one-step method took 5 iterations and the secant method took 6.  Optim with BFGS seems more reliable in the sense that it converged over a wider range of starting values.
+
+
+
+
+
+
+
+
+
