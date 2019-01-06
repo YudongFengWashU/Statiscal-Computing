@@ -1,0 +1,256 @@
+---
+title: "HW1"
+author: "Yudong Feng"
+date: "Sep.14 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Problem 1:
+```{r}
+library(tidyverse)
+library(nycflights13)
+```
+
+(a) The type of variables is
+
+```{r}
+names(diamonds)
+```
+
+(b) The data dimensions are
+
+```{r}
+dim(diamonds)
+```
+
+(c) To find the most expensive diamond,
+
+```{r}
+diamonds_df <- as.data.frame(diamonds)
+sort(diamonds_df[,"price"],decreasing = TRUE)[1:10]
+```
+the price is 18823, so we can do
+```{r}
+diamonds_exp = diamonds_df[diamonds_df["price"]==18823,]
+```
+the characteristics of the most expensive diamond is
+```{r}
+diamonds_exp
+```
+
+(d) The "Premium" diamonds are
+
+```{r}
+diamonds_prem = diamonds_df[diamonds_df["cut"]=="Premium",]
+```
+the number of "Premium" diamonds is 13791
+```{r}
+dim(diamonds_prem)
+```
+
+
+Problem 2
+We use ggplot2 package to analyze relationships between price and cut, clarity, color, and carat.
+```{r}
+library(ggplot2)
+```
+
+By common sense, carat seems related to price. To analyze the relationship, we can do 
+```{r}
+ggplot(data = diamonds) + geom_point(mapping = aes(x = carat, y = price))
+```
+It shows that carat is highly related to price, the more carats the diamond has, the higher the price is.
+Now we look at the color,
+```{r}
+ggplot(data = diamonds) + geom_smooth(mapping = aes(x = carat, y = price,color = color))
+```
+It seems like when carat < 2, color is related to price.
+Then for clarity,
+```{r}
+ggplot(data = diamonds) + geom_smooth(mapping = aes(x = carat, y = price,color = clarity))
+```
+It shows that clarity is related to price, IF>VVS1>VVS2>VS1>VS2>SI1>SI2>I1.
+Similarly, for cut,
+```{r}
+ggplot(data = diamonds) + geom_smooth(mapping = aes(x = carat, y = price, color = cut))
+```
+When carat < 3, good, very good, premium and ideal diamonds have similar prices, but fair diamonds have a lower price. When 3<carat<4, the cut has limited influence on price. When carat > 4, due to rareness of big diamonds, most of these diamonds only have fair cut.
+
+Problem 3
+The function is 
+```{r}
+my.bisect <- function(fun,interval,tol){
+  a = interval[1]
+  b = interval[2]
+  while (b-a>tol){
+    if (fun(a)*fun((a+b)/2) <= 0){
+      b = (a+b)/2
+    }else{
+      a = (a+b)/2
+    }
+  }
+  a
+}
+```
+
+(a)
+g and derivative of g are
+```{r}
+g <- function(x){
+  log(x)/(1+x)
+}
+
+dg <- function(x){
+  (1+x^(-1)-log(x))/((1+x)^2)
+}
+```
+The root of dg = 0 is 
+```{r}
+my.bisect(dg,c(1,5),0.001)
+```
+
+The maximium of g is 
+```{r}
+g(my.bisect(dg,c(1,5),0.001))
+```
+
+(b)
+Define my.bisect.hm to return the number of iterations,
+```{r}
+my.bisect.hm <- function(fun,interval,tol){
+  a = interval[1]
+  b = interval[2]
+  k = 0
+  while (b-a>tol){
+    k = k + 1
+    if (fun(a)*fun((a+b)/2) <= 0){
+      b = (a+b)/2
+    }else{
+      a = (a+b)/2
+    }
+  }
+  k
+}
+```
+The number of iterations s.t. error<0.001,
+```{r}
+my.bisect.hm(dg,c(1,5),0.001)
+```
+
+(c) For tol to 0.001
+```{r}
+my.bisect.hm(dg,c(1,5),0.001)
+```
+compared to uniroot function,
+```{r}
+uniroot(dg,c(1,5),tol = 0.001)
+```
+
+For tol to 0.0001,
+```{r}
+my.bisect.hm(dg,c(1,5),0.0001)
+```
+compared to uniroot function,
+```{r}
+uniroot(dg,c(1,5),tol = 0.0001)
+```
+
+The uniroot function has less number of iterations.
+
+(d)
+```{r}
+k_seq = c(0)*25
+tol=0.0001
+for (k in 4:25){
+  c = 0
+  d = k^0.5
+  while (d-c>tol){
+    mid = (c+d)/2
+    fun.c = pt((k*c^2/(k+1-c^2))^0.5,k) - pt(((k-1)*c^2/(k-c^2))^0.5,k-1)
+    fun.mid = pt((k*mid^2/(k+1-mid^2))^0.5,k) - pt(((k-1)*mid^2/(k-mid^2))^0.5,k-1)
+    if (fun.c*fun.mid < 0){
+      d = (c+d)/2
+    }else{
+      c = (c+d)/2
+    }
+  }
+  k_seq[k]=d
+}
+
+k = 100 
+  c = 0
+  d = k^0.5
+  while (d-c>tol){
+    mid = (c+d)/2
+    fun.c = pt((k*c^2/(k+1-c^2))^0.5,k) - pt(((k-1)*c^2/(k-c^2))^0.5,k-1)
+    fun.mid = pt((k*mid^2/(k+1-mid^2))^0.5,k) - pt(((k-1)*mid^2/(k-mid^2))^0.5,k-1)
+    if (fun.c*fun.mid < 0){
+      d = (c+d)/2
+    }else{
+      c = (c+d)/2
+    }
+  }
+k_seq[1]=d
+
+k = 500 
+  c = 0
+  d = k^0.5
+  while (d-c>tol){
+    mid = (c+d)/2
+    fun.c = pt((k*c^2/(k+1-c^2))^0.5,k) - pt(((k-1)*c^2/(k-c^2))^0.5,k-1)
+    fun.mid = pt((k*mid^2/(k+1-mid^2))^0.5,k) - pt(((k-1)*mid^2/(k-mid^2))^0.5,k-1)
+    if (fun.c*fun.mid < 0){
+      d = (c+d)/2
+    }else{
+      c = (c+d)/2
+    }
+  }
+k_seq[2]=d
+
+k = 1000 
+  c = 0
+  d = k^0.5
+  while (d-c>tol){
+    mid = (c+d)/2
+    fun.c = pt((k*c^2/(k+1-c^2))^0.5,k) - pt(((k-1)*c^2/(k-c^2))^0.5,k-1)
+    fun.mid = pt((k*mid^2/(k+1-mid^2))^0.5,k) - pt(((k-1)*mid^2/(k-mid^2))^0.5,k-1)
+    if (fun.c*fun.mid < 0){
+      d = (c+d)/2
+    }else{
+      c = (c+d)/2
+    }
+  }
+k_seq[3]=d
+
+k_seq
+```
+The first three items are k=100, 500, 1000, and the rest are k=4:25.
+
+Problem 4
+The function is 
+```{r}
+cauchycdf <- function(x,eta,theta){
+  delta_x = seq(from=min(-abs(x),eta)-1000*theta,to=x,by=0.001)
+  d = (((delta_x-eta)/theta)^2+1)*theta*pi
+  0.001*sum(d^(-1))
+}
+```
+Compare to pcauchy,
+```{r}
+cauchycdf(0,0,1)
+pcauchy(0,0,1)
+```
+
+```{r}
+cauchycdf(9,-1,5)
+pcauchy(9,-1,5)
+```
+
+```{r}
+cauchycdf(-11,2,12)
+pcauchy(-11,2,12)
+```
