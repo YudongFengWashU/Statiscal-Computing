@@ -1,0 +1,72 @@
+---
+title: "Takehome"
+author: "Yudong Feng"
+date: "10/24/2018"
+output: pdf_document
+---
+(a)  The function Dn(theta) is 
+```{r}
+Dn <- function(theta,q,datax){
+  n = length(datax)
+  s = 0
+  for (i in 1:n){
+    s = s + abs(theta - datax[i]) - datax[i]
+  }
+  D = 0.05*(s/(2*n) + theta*(1-2*q)/2)
+  return(D)
+}
+```
+
+(b) We import data directly from Internet
+```{r}
+norwegian.fire <- read.delim("https://www.math.wustl.edu/~nasyring/475/norwegianfire.txt")
+X.old <- norwegian.fire$X520[norwegian.fire$X72 == 89]/500
+X <- norwegian.fire$X520[norwegian.fire$X72 == 90]/500
+```
+
+(c) First, define the denominator function 
+```{r}
+p.shape <- 2
+p.scale <- as.numeric(quantile(X.old, 0.995)/2)
+deno <- function(theta_p,X){
+  p.shape <- 2
+  p.scale <- as.numeric(quantile(X.old, 0.995)/2)
+  n = length(X)
+  exp(-n*Dn(theta_p,0.995,X))*theta_p^(p.shape - 1)*
+    exp(-theta_p/p.scale)/(gamma(p.shape)*p.scale^p.shape)
+}
+```
+
+Then use Simpson's Rule to evaluate the integral
+```{r}
+a = 0
+b = 199
+m = 10000
+x.seq <- seq(from = a, to = b, length.out = m) 
+iterative_sum <- 0
+for(i in 1:(m-1)){
+  iterative_sum <- iterative_sum + deno(x.seq[i],X)+4*deno(0.5*(x.seq[i]+x.seq[i+ 1]),X)+
+    deno(x.seq[i+1],X)
+}
+deno_simp = ((b-a)/(6*m))*iterative_sum
+deno_simp
+```
+
+Now for the numerator,
+```{r}
+theta = seq(from = a, to = b, length.out = m)
+n = length(X)
+numerator = exp(-n*Dn(theta,0.995,X))*theta^(p.shape - 1)*
+  exp(-theta/p.scale)/(gamma(p.shape)*p.scale^p.shape)
+```
+
+(d) Plot the density function,
+```{r}
+plot(theta,numerator/deno_simp)
+```
+
+(e) Since the MAP estimator is the mode of the posterior density, we can simply use which.max function here.
+```{r}
+theta[which.max(numerator/deno_simp)]
+```
+The answer is around 51.
